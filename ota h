@@ -13,7 +13,7 @@
 #include <ArduinoJson.h>
 
 // ─── KONFIGURASI OTA (WAJIB diganti) ───
-#define OTA_REPO         "USER/REPO"     // ← ganti: username/nama-repo
+#define OTA_REPO         "S3_speaker"     // ← ganti: username/nama-repo
 #define OTA_CHECK_HOURS  6               // jeda cek OTA (jam)
 #define OTA_TAG_PREFIX   "v"             // tag release: v1.0.1
 
