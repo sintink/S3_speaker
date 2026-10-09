@@ -17,7 +17,7 @@
 #include <WiFiClient.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include "Audio_nopsram.h"
+#include "Audio.h"
 #include "ota.h"                 // ← modul OTA (setelah FW_VERSION)
 
 // ─── WiFi ───
@@ -152,7 +152,7 @@ void setup() {
     // Audio
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DIN);
     audio.setConnectionTimeout(STREAM_TIMEOUT_MS, 10000);
-    //audio.setAudioTaskCore(1);
+    audio.setAudioTaskCore(1);
     if (psramFound()) audio.setBufsize(0, PSRAM_BUF_BYTES);
     audio.setVolume(VOLUME_MUSIK);
 
