@@ -29,7 +29,7 @@ jobs:
         run: |
           arduino-cli config set library.enable_unsafe_install true
           arduino-cli lib install ArduinoJson
-          arduino-cli lib install --git-url "https://github.com/schreibfaul1/ESP32-audioI2S#V3.3.1"
+           arduino-cli lib install --git-url https://github.com/schreibfaul1/ESP32-audioI2S
 
       - name: Compile
         run: |
