@@ -34,7 +34,7 @@ jobs:
       - name: Compile
         run: |
           arduino-cli compile \
-            --fqbn "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=default_16MB,CDCOnBoot=cdc" \
+            --fqbn "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,CDCOnBoot=cdc" \
             --warnings none \
             --output-dir build \
             .
