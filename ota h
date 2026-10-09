@@ -1,9 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
 //  ota.h — OTA update via GitHub Releases
-//  - Cek tag release terbaru via GitHub API
-//  - Download firmware.bin dari /releases/latest/download/
-//  - Tunggu audio idle sebelum flash (biar TTS tidak terpotong)
-//  - Tanam di core 0, satu task terpisah dari netTask
 // ═══════════════════════════════════════════════════════════════
 #pragma once
 #include <WiFi.h>
@@ -13,57 +9,40 @@
 #include <ArduinoJson.h>
 
 // ─── KONFIGURASI OTA (WAJIB diganti) ───
-#define OTA_REPO         "S3_speaker"     // ← ganti: username/nama-repo
-#define OTA_CHECK_HOURS  6               // jeda cek OTA (jam)
-#define OTA_TAG_PREFIX   "v"             // tag release: v1.0.1
+#define OTA_REPO         "sintink/S3_speaker"
+#define OTA_CHECK_HOURS  6
+#define OTA_TAG_PREFIX   "v"
 
-// ─── URL derivatif ───
 #define OTA_API_URL  "https://api.github.com/repos/" OTA_REPO "/releases/latest"
 #define OTA_FW_URL   "https://github.com/" OTA_REPO "/releases/latest/download/firmware.bin"
 
-// FW_VERSION harus didefinisikan di .ino SEBELUM #include "ota.h"
 #ifndef FW_VERSION
 #error "Definisikan FW_VERSION di .ino sebelum #include \"ota.h\""
 #endif
 
-// ─── Flag bareng (didefinisikan di .ino) ───
-extern volatile bool g_audioIdle;   // true kalau TTS+musik sedang tidak main
-extern volatile bool g_otaBusy;     // true selama OTA download/flash
+extern volatile bool g_audioIdle;
+extern volatile bool g_otaBusy;
 
-// ═══════════════════════════════════════════════════════════════
-//  Ambil tag versi terbaru dari GitHub Releases
-// ═══════════════════════════════════════════════════════════════
 static bool otaGetLatestTag(String& outTag) {
     WiFiClientSecure c;
-    c.setInsecure();                    // skip cert verify (cukup untuk OTA)
+    c.setInsecure();
     HTTPClient http;
     http.setConnectTimeout(8000);
     http.setTimeout(8000);
-    http.setUserAgent("ESP32-OTA");     // WAJIB: GitHub API tolak UA kosong
+    http.setUserAgent("ESP32-OTA");
     http.addHeader("Accept", "application/vnd.github+json");
 
-    if (!http.begin(c, OTA_API_URL)) {
-        Serial.println("[OTA] begin gagal");
-        return false;
-    }
+    if (!http.begin(c, OTA_API_URL)) return false;
     int code = http.GET();
-    if (code != HTTP_CODE_OK) {
-        Serial.printf("[OTA] API HTTP %d\n", code);
-        http.end();
-        return false;
-    }
+    if (code != HTTP_CODE_OK) { http.end(); return false; }
 
-    // Filter biar heap hemat: hanya ambil field tag_name
     JsonDocument filter;
     filter["tag_name"] = true;
     JsonDocument doc;
     DeserializationError err = deserializeJson(
         doc, http.getStream(), DeserializationOption::Filter(filter));
     http.end();
-    if (err) {
-        Serial.printf("[OTA] JSON err: %s\n", err.c_str());
-        return false;
-    }
+    if (err) return false;
 
     outTag = String((const char*)(doc["tag_name"] | ""));
     outTag.trim();
@@ -71,9 +50,6 @@ static bool otaGetLatestTag(String& outTag) {
     return !outTag.isEmpty();
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Download firmware.bin → tulis ke slot OTA
-// ═══════════════════════════════════════════════════════════════
 static bool otaDownloadAndFlash() {
     WiFiClientSecure c;
     c.setInsecure();
@@ -85,84 +61,41 @@ static bool otaDownloadAndFlash() {
 
     if (!http.begin(c, OTA_FW_URL)) return false;
     int code = http.GET();
-    if (code != HTTP_CODE_OK) {
-        Serial.printf("[OTA] FW HTTP %d\n", code);
-        http.end();
-        return false;
-    }
+    if (code != HTTP_CODE_OK) { http.end(); return false; }
     int len = http.getSize();
-    if (len <= 0) {
-        Serial.println("[OTA] size invalid");
-        http.end();
-        return false;
-    }
+    if (len <= 0) { http.end(); return false; }
 
-    Serial.printf("[OTA] Download %d byte...\n", len);
-    if (!Update.begin(len)) {
-        Serial.printf("[OTA] begin: %s\n", Update.errorString());
-        http.end();
-        return false;
-    }
-
+    if (!Update.begin(len)) { http.end(); return false; }
     size_t written = Update.writeStream(*http.getStreamPtr());
-    if (written != (size_t)len) {
-        Serial.printf("[OTA] tulis %u/%d\n", written, len);
-        Update.abort();
-        http.end();
-        return false;
-    }
-    if (!Update.end()) {
-        Serial.printf("[OTA] end: %s\n", Update.errorString());
-        http.end();
-        return false;
-    }
+    if (written != (size_t)len) { Update.abort(); http.end(); return false; }
+    if (!Update.end()) { http.end(); return false; }
     http.end();
     return true;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Satu siklus cek OTA
-// ═══════════════════════════════════════════════════════════════
 static void otaCheckOnce() {
     if (WiFi.status() != WL_CONNECTED) return;
-
     String tag;
-    if (!otaGetLatestTag(tag)) {
-        Serial.println("[OTA] Cek versi gagal (nanti dicoba lagi)");
-        return;
-    }
+    if (!otaGetLatestTag(tag)) return;
+    if (tag == FW_VERSION) return;
 
-    Serial.printf("[OTA] lokal=%s remote=%s\n", FW_VERSION, tag.c_str());
-    if (tag == FW_VERSION) return;      // sudah versi terbaru
-
-    Serial.println("[OTA] Versi baru ada. Tunggu audio idle...");
     uint32_t t0 = millis();
     while (!g_audioIdle && millis() - t0 < 5UL * 60 * 1000) {
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
-    if (!g_audioIdle) {
-        Serial.println("[OTA] Audio tidak idle 5 menit, tunda");
-        return;
-    }
+    if (!g_audioIdle) return;
 
     g_otaBusy = true;
     if (otaDownloadAndFlash()) {
-        Serial.println("[OTA] Sukses, restart...");
         delay(500);
         ESP.restart();
     }
     g_otaBusy = false;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Task OTA (pin ke core 0, berdampingan dengan netTask)
-// ═══════════════════════════════════════════════════════════════
 static void otaTask(void* arg) {
-    // Tunggu WiFi dulu
     while (WiFi.status() != WL_CONNECTED) vTaskDelay(pdMS_TO_TICKS(5000));
-    // Grace 15 detik setelah boot biar audio & netTask settle dulu
     vTaskDelay(pdMS_TO_TICKS(15000));
-
     for (;;) {
         otaCheckOnce();
         vTaskDelay(pdMS_TO_TICKS((uint32_t)OTA_CHECK_HOURS * 3600UL * 1000UL));
