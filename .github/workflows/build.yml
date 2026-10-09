@@ -17,14 +17,6 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
           echo "$PWD/bin" >> $GITHUB_PATH
 
-      - name: Cache core & libraries
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.arduino15
-            ~/Arduino/libraries
-          key: arduino-${{ hashFiles('.github/workflows/build.yml') }}
-
       - name: Setup ESP32 core
         run: |
           arduino-cli config init
@@ -35,8 +27,8 @@ jobs:
 
       - name: Install libraries
         run: |
-          arduino-cli lib install "ArduinoJson@7.0.4"
-          arduino-cli lib install --git-url https://github.com/schreibfaul1/ESP32-audioI2S
+          arduino-cli lib install ArduinoJson
+          arduino-cli lib install "ESP32-audioI2S"
 
       - name: Compile
         run: |
@@ -46,25 +38,8 @@ jobs:
             --output-dir build \
             .
 
-      - name: Prepare firmware
-        run: |
-          VERSION=$(grep -oP 'FW_VERSION\s+"\K[^"]+' S3_Speaker.ino)
-          echo "FW_VERSION=$VERSION" >> $GITHUB_ENV
-          ls -la build/
-          cp build/*.ino.bin build/firmware.bin
-          cp build/*.ino.bin "build/firmware-$VERSION.bin"
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ env.FW_VERSION }}
-          path: |
-            build/firmware.bin
-            build/firmware-${{ env.FW_VERSION }}.bin
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: build/firmware.bin
-          generate_release_notes: true
+          name: firmware
+          path: build/*.bin
