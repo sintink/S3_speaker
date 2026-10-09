@@ -17,7 +17,7 @@
 #include <WiFiClient.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include "Audio.h"
+#include "Audio_nopsram.h"
 #include "ota.h"                 // ← modul OTA (setelah FW_VERSION)
 
 // ─── WiFi ───
