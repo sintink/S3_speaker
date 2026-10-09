@@ -28,7 +28,7 @@ jobs:
       - name: Install libraries
         run: |
           arduino-cli lib install ArduinoJson
-          arduino-cli lib install "ESP32-audioI2S"
+          arduino-cli lib install --git-url https://github.com/schreibfaul1/ESP32-audioI2S
 
       - name: Compile
         run: |
