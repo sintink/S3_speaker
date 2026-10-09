@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ── Versi firmware — WAJIB naikkan sebelum rilis OTA ──
-#define FW_VERSION "1.0.0"
+#define FW_VERSION "1.0.1"
 
 #include <WiFi.h>
 #include <WiFiClient.h>
